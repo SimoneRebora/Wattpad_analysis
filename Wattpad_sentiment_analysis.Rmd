@@ -1,0 +1,266 @@
+---
+title: "Wattpad Sentiment Analysis Tutorial"
+output:
+  html_document: default
+  pdf_document:
+    latex_engine: lualatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/>
+First, let's upload the corpus.
+
+## Upload Wattpad corpus and call libraries 
+
+The corpus is divided in 10 parts:<br/>
+- unique identifier for book, chapter, and paragraph<br/>
+- title of book, chapter, and paragraph<br/>
+- name of the user and date of his/her comment<br/>
+- the comment<br/>
+- a logical TRUE/FALSE, that indicates if the comment is a reply to a previuos comment<br/>
+<br/>
+Note that the corpus is a "sample" generated on the basis of the "Pride and Prejudice" dataset.<br/>
+The text is the same as it appears in Wattpad and Project Gutenberg; usernames have been anonymized; dates and replies indicators have been scrambled; comments have been generated artifically by re-mixing the words of the actual comments. 
+
+```{r corpus}
+wattpad_df <- read.csv("Sample_wattpad_corpus.csv", stringsAsFactors = F)
+summary(wattpad_df)
+# a library for sentiment analysis
+if (!require("syuzhet")) install.packages("syuzhet")
+# two libraries for data preparation and visualization
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("reshape2")) install.packages("reshape2")
+# a library for the progress bar
+if (!require("svMisc")) install.packages("svMisc")
+```
+
+## Sentiment analysis on one paragraph
+### Step 1
+
+Let's start by analyzing the first paragraph of the first book<br/>
+<br/>
+Isolate book no. 1<br/>
+and define a unique identifier for each paragraph<br/>
+
+```{r}
+wattpad_df_book <- wattpad_df[which(wattpad_df$bookID == 1),]
+allParagraphsID <- paste(wattpad_df_book$bookID, wattpad_df_book$chapterID, wattpad_df_book$paragraphID, sep = "_")
+wattpad_df_book <- cbind(wattpad_df_book, allParagraphsID)
+paragraph_selection <- unique(allParagraphsID)
+
+cat("Analysis on:", 
+    wattpad_df_book$book[1], "",
+    "Total available paragraphs:", 
+    length(paragraph_selection), "",
+    head(paragraph_selection),
+    "...etc.", 
+    sep = "\n")
+```
+
+### Step 2
+
+Let's focus on paragraph 1_1_1
+
+```{r}
+paragraph <- "1_1_1"
+paragraph_for_SA <- wattpad_df_book$paragraph[which(wattpad_df_book$allParagraphsID==paragraph)][1]
+comments_for_SA <- wattpad_df_book$comment[which(wattpad_df_book$allParagraphsID==paragraph)]
+cat("Here is the paragraph to analyze:\n",
+    paragraph_for_SA,
+    "\nHere are the comments:\n",
+    head(comments_for_SA), 
+    "...etc.", sep = "\n")
+```
+
+### Step 3
+
+Let's get the sentiment values for paragraph and comments
+
+```{r}
+paragraph_sentiment <- get_sentiment(paragraph_for_SA, method = "syuzhet")
+comments_sentiment <- numeric()
+for(comment in head(comments_for_SA)){
+  comments_sentiment <- c(comments_sentiment, get_sentiment(comment, method = "syuzhet"))
+}
+cat("Sentiment of the paragraph:",
+    paragraph_sentiment, "",
+    "Sentiment of the comments:",
+    comments_sentiment,
+    "...etc.", "",
+    "Total comments to analyze:", 
+    length(comments_for_SA),
+    sep = "\n")
+```
+
+### Step 4
+
+Now, the problem is that we have:<br/>
+- one sentiment value for the paragraph<br/>
+- multiple sentiment values for the related comments<br/>
+<br/>
+To have a single sentiment value for both, a mean is calculated for the comments:
+
+```{r}
+paragraph_sentiment <- get_sentiment(paragraph_for_SA, method = "syuzhet")
+comments_sentiment <- 0
+for(comment in comments_for_SA){
+  comments_sentiment_tmp <- get_sentiment(comment, method = "syuzhet")
+  comments_sentiment <- comments_sentiment + comments_sentiment_tmp
+}
+# normalize per number of comments
+comments_sentiment <- comments_sentiment/length(comments_for_SA)
+
+cat("Sentiment of the paragraph:",
+    paragraph_sentiment,
+    "Mean sentiment of the comments:",
+    comments_sentiment,
+    sep = "\n")
+```
+
+## Sentiment analysis on all paragraphs
+### Step 1
+
+Now everything is ready for expanding the analysis to all the paragraphs!<br/>
+The below code brings together all the functions defined before into a single function, that iterates on all the paragraphs<br/>
+The results are saved in a datafame format<br/>
+
+```{r}
+calculate_wattpad_sentiment <- function(book){
+  cat("Processing book no.", book, "\n")
+  wattpad_df_book <- wattpad_df[which(wattpad_df$bookID == book),]
+  allParagraphsID <- paste(wattpad_df_book$bookID, wattpad_df_book$chapterID, wattpad_df_book$paragraphID, sep = "_")
+  wattpad_df_book <- cbind(wattpad_df_book, allParagraphsID)
+  ###after having prepared the dataframe for the single book, all the possible paragraphs to process are extracted
+  paragraph_selection <- unique(allParagraphsID)
+  ###all values are initialized (paragraph number, total length of book, and a dataframe where to store results)
+  paragraph_number <- 0
+  total_length <- 0
+  final_results_SA <- data.frame(paragraph = numeric(), paragraph_length = numeric(), paragraph_sentiment = numeric(), comments_sentiment = numeric())
+  ###now start iteration on all paragraphs
+  # initialize progress bar
+  pb = txtProgressBar(max = length(paragraph_selection), style = 3)
+  for(paragraph in paragraph_selection){
+    # get paragraph and comments
+    paragraph_for_SA <- wattpad_df_book$paragraph[which(wattpad_df_book$allParagraphsID==paragraph)][1]
+    comments_for_SA <- wattpad_df_book$comment[which(wattpad_df_book$allParagraphsID==paragraph)]
+    # get paragraph length
+    paragraph_length <- unlist(strsplit(paragraph_for_SA, "\\W"))
+    paragraph_length <- paragraph_length[paragraph_length != ""]
+    paragraph_length <- length(paragraph_length)
+    # increase total length
+    total_length <- total_length+paragraph_length
+    # get paragraph sentiment
+    paragraph_sentiment <- get_sentiment(paragraph_for_SA, method = "syuzhet")
+    # get comments sentiment
+    comments_sentiment <- 0
+    for(comment in comments_for_SA){
+      comments_sentiment_tmp <- get_sentiment(comment, method = "syuzhet")
+      comments_sentiment <- comments_sentiment + comments_sentiment_tmp
+    }
+    # normalize per number of comments
+    comments_sentiment <- comments_sentiment/length(comments_for_SA)
+    # increase paragraph number
+    paragraph_number <- paragraph_number+1
+    # save results into dataframe
+    final_results_SA <- rbind(final_results_SA, data.frame(paragraph_number, paragraph_length, total_length, paragraph_sentiment, comments_sentiment))
+    # print progress
+    setTxtProgressBar(pb,paragraph_number)
+  }
+  final_results_SA$percentage_of_book <- final_results_SA$total_length/total_length*100
+  cat("\nProcess complete for:", wattpad_df_book$book[1], "\n")
+  return(final_results_SA)
+}
+
+```
+
+### Step 2
+
+This function can be used to run sentiment analysis on our books selection<br/>
+Let's use it on the first book (Pride and Prejudice)<br/>
+[the procedure will take a bit of time]
+
+```{r}
+results_SA <- calculate_wattpad_sentiment(1)
+
+```
+
+### Step 3
+
+Now the results are stored in the "results_SA" variable<br/>
+We can already print them, but (as already shown by Jockers) they are still too noisy to be interpreted
+
+```{r}
+plot(results_SA$paragraph_sentiment, type = "l")
+plot(results_SA$comments_sentiment, type = "l")
+```
+
+### Step 4
+
+We have to use the moving window procedure, and apply it to the calculated scores<br/>
+First we define the functions, then we apply them on the "results_SA" variable
+
+```{r}
+###function for rolling plot (taken from https://github.com/mjockers/syuzhet/blob/master/R/syuzhet.R)
+rolling_plot <- function (raw_values, window = 0.1){
+  wdw <- round(length(raw_values) * window)
+  rolled <- rescale(zoo::rollmean(raw_values, k = wdw, fill = 0))
+  half <- round(wdw/2)
+  rolled[1:half] <- NA
+  end <- length(rolled) - half
+  rolled[end:length(rolled)] <- NA
+  return(rolled)
+}
+
+rolled_wattpad_plots <- function(final_results_SA){
+  print("Get rid of NAs")
+  final_results_SA$comments_sentiment[which(is.na(final_results_SA$comments_sentiment))] <- 0
+  final_results_SA$paragraph_sentiment[which(is.na(final_results_SA$paragraph_sentiment))] <- 0
+  
+  print("Calculate rolling mean (as Jockers does...)")
+  rolled_plot_paragraphs <- rolling_plot(final_results_SA$paragraph_sentiment, window = 0.1)
+  rolled_plot_comments <- rolling_plot(final_results_SA$comments_sentiment, window = 0.1)
+  
+  print("Save all to dataframe")
+  compare_SA_df <- data.frame(percentage_of_book = final_results_SA$percentage_of_book, paragraph = rolled_plot_paragraphs, comments = rolled_plot_comments)
+  
+  return(compare_SA_df)
+}
+
+compare_SA_df <- rolled_wattpad_plots(results_SA)
+
+```
+
+### Step 5
+
+Now everything is ready to print our plot for the entire book
+
+```{r}
+##melt dataframe (to make ggplot graph)
+compare_SA_df_melt <- melt(compare_SA_df, id.vars = colnames(compare_SA_df)[1])
+colnames(compare_SA_df_melt) <- c("percentage_of_book", "approach", "sentiment")
+book_title <- wattpad_df_book$book[1]
+  
+p1 <- ggplot(data = compare_SA_df_melt) +
+  geom_line(mapping = aes(percentage_of_book, sentiment, color = approach, group = approach)) +
+  ggtitle(book_title) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_continuous(minor_breaks = seq(0,100,5), breaks = seq(0,100,10))
+p1  
+```
+
+
+### Step 6
+
+In addition, some statistics can be run to verify the connection between text and comments: correlation and linear regression 
+
+```{r}
+##correlation
+print(cor.test(compare_SA_df$paragraph, compare_SA_df$comments))
+##regression
+model <- lm(compare_SA_df$comments ~ compare_SA_df$paragraph)
+print(summary(model))
+```
+
