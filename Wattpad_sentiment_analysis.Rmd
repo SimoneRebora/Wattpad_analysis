@@ -1,9 +1,6 @@
 ---
 title: "Wattpad Sentiment Analysis Tutorial"
-output:
-  html_document: default
-  pdf_document:
-    latex_engine: lualatex
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +12,7 @@ First, let's upload the corpus.
 
 ## Upload Wattpad corpus and call libraries 
 
-The corpus is divided in 10 parts:<br/>
+Each entry in the corpus is composed by 10 parts:<br/>
 - unique identifier for book, chapter, and paragraph<br/>
 - title of book, chapter, and paragraph<br/>
 - name of the user and date of his/her comment<br/>
