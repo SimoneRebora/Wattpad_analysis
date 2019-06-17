@@ -181,6 +181,166 @@ cat(&quot;Percentage of comments:&quot;,
 <pre class="r"><code>exclude &lt;- which(wattpad_df$username==&quot;-&quot;)
 wattpad_df &lt;- wattpad_df[-exclude,]</code></pre>
 </div>
+<div id="step-4" class="section level3">
+<h3>Step 4</h3>
+<p>Run the analysis!<br /> It is an iterative process, that works on the “reply” part of the dataset:<br /> - if reply is “FALSE”, it generates a connection between the user and the commented paragraph;<br /> - if reply is “TRUE”, it generates a connection between the current user and the last user for whom reply was set as “FALSE” (i.e. between the current user and the last user who wrote the comment to which he/she is replying).<br /> The results are saved in a vector of strings, composed with the convention: “USER current_user #PAIR# PARAGRAPH current_paragraph / USER previous_user”</p>
+<pre class="r"><code>user_book_pair &lt;- character()
+for(i in 1:length(wattpad_df$reply)){
+  if(wattpad_df$reply[i] == &quot;TRUE&quot;){
+    if(wattpad_df$reply[i-1] == &quot;FALSE&quot;){
+      target &lt;- paste(&quot;USER&quot;, wattpad_df$username[i-1], sep = &quot; &quot;)
+    }
+    user_book_pair[i] &lt;- paste(paste(&quot;USER&quot;, wattpad_df$username[i], sep = &quot; &quot;), target, sep = &quot; #PAIR# &quot;)
+    #print(i/length(wattpad_df$reply)) ##in case you want to see the progress...
+    next
+  }
+  user_book_pair[i] &lt;- paste(paste(&quot;USER&quot;, wattpad_df$username[i], sep = &quot; &quot;), paste(&quot;PARAGRAPH &quot;, wattpad_df$bookID[i], &quot;_&quot;, wattpad_df$chapterID[i], &quot;_&quot;, wattpad_df$paragraphID[i], sep = &quot;&quot;), sep = &quot; #PAIR# &quot;)
+  #print(i/length(wattpad_df$reply)) ##in case you want to see the progress...
+}
+cat(&quot;Result:&quot;, head(user_book_pair), &quot;...&quot;, sep = &quot;\n&quot;)</code></pre>
+<pre><code>## Result:
+## USER User_3cMAV #PAIR# PARAGRAPH 1_1_1
+## USER User_JPrug #PAIR# PARAGRAPH 1_1_1
+## USER User_BvCbH #PAIR# PARAGRAPH 1_1_1
+## USER User_IE8YE #PAIR# PARAGRAPH 1_1_1
+## USER User_Kwswz #PAIR# PARAGRAPH 1_1_1
+## USER User_hkkod #PAIR# USER User_Kwswz
+## ...</code></pre>
+</div>
+<div id="step-5" class="section level3">
+<h3>Step 5</h3>
+<p>Now everything is ready to calculate the first general statistics</p>
+<pre class="r"><code>user_book_pair_stats &lt;- sort(table(user_book_pair), decreasing = T)
+print(head(user_book_pair_stats))</code></pre>
+<pre><code>## user_book_pair
+## USER User_mAxY6 #PAIR# PARAGRAPH 1_1_1 
+##                                      4 
+## USER User_sjIPv #PAIR# PARAGRAPH 1_1_1 
+##                                      4 
+## USER User_xwZ00 #PAIR# PARAGRAPH 1_1_1 
+##                                      4 
+## USER User_10QNF #PAIR# PARAGRAPH 1_1_1 
+##                                      3 
+## USER User_2ECfb #PAIR# PARAGRAPH 1_1_1 
+##                                      3 
+## USER User_3oCQG #PAIR# PARAGRAPH 1_1_1 
+##                                      3</code></pre>
+</div>
+<div id="step-6" class="section level3">
+<h3>Step 6</h3>
+<p>Now simplify the connections, by collapsing paragraphs into chapters. If you are working on more than one book and you want to see connections with books instead of chapters, please set the “choice” variable accordingly choice:“book” (focuses on one book and collapses paragraphs into chapters) choice:“category” (focuses on one category and collapses paragraphs into books)</p>
+<pre class="r"><code>choice &lt;- &quot;book&quot;
+#choice &lt;- &quot;category&quot;
+
+###exclude relations with self
+commentor_commenter &lt;- strsplit(names(user_book_pair_stats), &quot; #PAIR# &quot;)
+exclude_tmp &lt;- lapply(commentor_commenter, function(x){which(x[1]==x[2])})
+exclude &lt;- which(exclude_tmp==1)
+user_book_pair_stats &lt;- user_book_pair_stats[-exclude]
+
+###prepare final dataframe
+source_target &lt;- strsplit(names(user_book_pair_stats), &quot; #PAIR# &quot;)
+Source &lt;- unlist(lapply(source_target, function(x) x[1]))
+Target &lt;- unlist(lapply(source_target, function(x) x[2]))
+
+commented_paragraphs &lt;- which(substr(Target, 1, 9) == &quot;PARAGRAPH&quot;)
+
+##Simplify analysis to commented books
+if(choice == &quot;category&quot;){
+  for(i in commented_paragraphs){
+    Target[i] &lt;- substr(Target[i], 11, nchar(Target[i]))
+    Target[i] &lt;- unlist(strsplit(Target[i], &quot;_&quot;))[1]
+    Target[i] &lt;- paste(&quot;BOOK&quot;, books[as.numeric(Target[i])])
+    #print(i)
+  }
+}
+
+##Simplify analysis to commented chapters for single books
+if(choice == &quot;book&quot;){
+  for(i in commented_paragraphs){
+    Target[i] &lt;- substr(Target[i], 11, nchar(Target[i]))      
+    selected_chapter &lt;- unlist(strsplit(Target[i], &quot;_&quot;))[2]
+    Target[i] &lt;- paste(&quot;CHAP_&quot;, selected_chapter, sep = &quot;&quot;)
+    #print(i)
+  }
+}</code></pre>
+</div>
+<div id="step-7" class="section level3">
+<h3>Step 7</h3>
+<p>Collapsing paragraphs into books/chapters might have generated some duplicated entries, thus sum the values of repeated entries and save all into a dataframe (tabular format)</p>
+<pre class="r"><code>##Aggregate in dataframe
+user_book_pair_stats_tmp &lt;- data.frame(Weight=as.vector(user_book_pair_stats), source_target = paste(Source, Target, sep = &quot; #PAIR# &quot;), stringsAsFactors = F)
+
+##Sum repeated entries
+user_book_pair_stats_tmp &lt;- with(user_book_pair_stats_tmp, aggregate(list(Weight = Weight), list(source_target = source_target), sum))</code></pre>
+</div>
+<div id="step-8" class="section level3">
+<h3>Step 8</h3>
+<p>Filter weak connections (i.e. exclude pairs that are repeated less than a certain number of times)</p>
+<pre class="r"><code>activity_limit &lt;- 3
+exclude &lt;- which(user_book_pair_stats_tmp$Weight &lt; activity_limit)
+user_book_pair_stats_tmp &lt;- user_book_pair_stats_tmp[-exclude,]</code></pre>
+</div>
+<div id="step-9" class="section level3">
+<h3>Step 9</h3>
+<p>Prepare dataframe for final results.<br /> Values are normalized between 0 and 10 to favour visualization in Gephi</p>
+<pre class="r"><code>##Prepare final dataframe
+source_target &lt;- strsplit(user_book_pair_stats_tmp$source_target, &quot; #PAIR# &quot;)
+Source &lt;- unlist(lapply(source_target, function(x) x[1]))
+Target &lt;- unlist(lapply(source_target, function(x) x[2]))
+user_book_pair_stats_df &lt;- data.frame(Source, Target, Weight=user_book_pair_stats_tmp$Weight, Type=&quot;directed&quot;, stringsAsFactors = F)
+
+##Normalize weights between 0 and 10
+normalize_weight &lt;- 10
+user_book_pair_stats_df$Weight &lt;- user_book_pair_stats_df$Weight/max(user_book_pair_stats_df$Weight)*normalize_weight</code></pre>
+</div>
+<div id="step-10" class="section level3">
+<h3>Step 10</h3>
+<p>Anonymize all user names</p>
+<pre class="r"><code>##Anonymize
+full_node_names &lt;- unique(c(user_book_pair_stats_df$Source, user_book_pair_stats_df$Target))
+anonymizing_table &lt;- data.frame(full_node_names, anonymized_names = character(length(full_node_names)), stringsAsFactors = F)
+book_count &lt;- 0
+user_count &lt;- 0
+for(i in 1:length(anonymizing_table$full_node_names)){
+  if(substr(anonymizing_table$full_node_names[i], 1, 4) == &quot;BOOK&quot;){
+    book_count &lt;- book_count + 1
+    anonymizing_table$anonymized_names[i] &lt;- paste(&quot;BOOK_&quot;, book_count, sep = &quot;&quot;)
+  }
+  if(substr(anonymizing_table$full_node_names[i], 1, 4) == &quot;USER&quot;){
+    user_count &lt;- user_count + 1
+    anonymizing_table$anonymized_names[i] &lt;- paste(&quot;USER_&quot;, user_count, sep = &quot;&quot;)
+  }
+  if(substr(anonymizing_table$full_node_names[i], 1, 4) == &quot;CHAP&quot;){
+    anonymizing_table$anonymized_names[i] &lt;- anonymizing_table$full_node_names[i]
+  }
+}
+
+for(i in 1:length(user_book_pair_stats_df$Source)){
+  user_book_pair_stats_df$Source[i] &lt;- anonymizing_table$anonymized_names[which(anonymizing_table$full_node_names == user_book_pair_stats_df$Source[i])]
+  user_book_pair_stats_df$Target[i] &lt;- anonymizing_table$anonymized_names[which(anonymizing_table$full_node_names == user_book_pair_stats_df$Target[i])]
+}</code></pre>
+</div>
+<div id="step-11" class="section level3">
+<h3>Step 11</h3>
+<p>Save all results in separated tables: nodes, edges, and table with real/anonymized names</p>
+<pre class="r"><code>###Prepare nodes table
+nodes_table &lt;- data.frame(Id = anonymizing_table$anonymized_names, Label = anonymizing_table$anonymized_names, group = substr(anonymizing_table$anonymized_names, 1, 1), stringsAsFactors = F)
+for(i in 1:length(nodes_table$Id)){
+  if(substr(nodes_table$Label[i], 1, 4) == &quot;BOOK&quot;){
+    nodes_table$Label[i] &lt;- substr(anonymizing_table$full_node_names[i], 6, nchar(anonymizing_table$full_node_names[i]))
+  }
+}
+
+##Save all
+write.csv(user_book_pair_stats_df, file = &quot;edges.csv&quot;, row.names = F)
+write.csv(nodes_table, file = &quot;nodes.csv&quot;, row.names = F)
+write.csv(anonymizing_table, file = &quot;anonymizing_table.csv&quot;, row.names = F)</code></pre>
+</div>
+<div id="step-12-in-gephi" class="section level3">
+<h3>Step 12 (in Gephi)</h3>
+<p>Now everything is ready to visualize and analyze your graph in Gephi!</p>
+</div>
 </div>
 
 

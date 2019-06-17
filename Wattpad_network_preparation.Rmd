@@ -62,3 +62,175 @@ exclude <- which(wattpad_df$username=="-")
 wattpad_df <- wattpad_df[-exclude,]
 ```
 
+### Step 4
+
+Run the analysis!<br/>
+It is an iterative process, that works on the "reply" part of the dataset:<br/>
+- if reply is "FALSE", it generates a connection between the user and the commented paragraph;<br/>
+- if reply is "TRUE", it generates a connection between the current user and the last user for whom reply was set as "FALSE" (i.e. between the current user and the last user who wrote the comment to which he/she is replying).<br/>
+The results are saved in a vector of strings, composed with the convention: "USER current_user #PAIR# PARAGRAPH current_paragraph / USER previous_user"
+
+```{r}
+user_book_pair <- character()
+for(i in 1:length(wattpad_df$reply)){
+  if(wattpad_df$reply[i] == "TRUE"){
+    if(wattpad_df$reply[i-1] == "FALSE"){
+      target <- paste("USER", wattpad_df$username[i-1], sep = " ")
+    }
+    user_book_pair[i] <- paste(paste("USER", wattpad_df$username[i], sep = " "), target, sep = " #PAIR# ")
+    #print(i/length(wattpad_df$reply)) ##in case you want to see the progress...
+    next
+  }
+  user_book_pair[i] <- paste(paste("USER", wattpad_df$username[i], sep = " "), paste("PARAGRAPH ", wattpad_df$bookID[i], "_", wattpad_df$chapterID[i], "_", wattpad_df$paragraphID[i], sep = ""), sep = " #PAIR# ")
+  #print(i/length(wattpad_df$reply)) ##in case you want to see the progress...
+}
+cat("Result:", head(user_book_pair), "...", sep = "\n")
+```
+
+### Step 5
+
+Now everything is ready to calculate the first general statistics
+
+```{r}
+user_book_pair_stats <- sort(table(user_book_pair), decreasing = T)
+print(head(user_book_pair_stats))
+```
+
+### Step 6
+
+Now simplify the connections, by collapsing paragraphs into chapters.
+If you are working on more than one book and you want to see connections with books instead of chapters, please set the "choice" variable accordingly
+choice:"book" (focuses on one book and collapses paragraphs into chapters)
+choice:"category" (focuses on one category and collapses paragraphs into books)
+
+```{r}
+choice <- "book"
+#choice <- "category"
+
+###exclude relations with self
+commentor_commenter <- strsplit(names(user_book_pair_stats), " #PAIR# ")
+exclude_tmp <- lapply(commentor_commenter, function(x){which(x[1]==x[2])})
+exclude <- which(exclude_tmp==1)
+user_book_pair_stats <- user_book_pair_stats[-exclude]
+
+###prepare final dataframe
+source_target <- strsplit(names(user_book_pair_stats), " #PAIR# ")
+Source <- unlist(lapply(source_target, function(x) x[1]))
+Target <- unlist(lapply(source_target, function(x) x[2]))
+
+commented_paragraphs <- which(substr(Target, 1, 9) == "PARAGRAPH")
+
+##Simplify analysis to commented books
+if(choice == "category"){
+  for(i in commented_paragraphs){
+    Target[i] <- substr(Target[i], 11, nchar(Target[i]))
+    Target[i] <- unlist(strsplit(Target[i], "_"))[1]
+    Target[i] <- paste("BOOK", books[as.numeric(Target[i])])
+    #print(i)
+  }
+}
+
+##Simplify analysis to commented chapters for single books
+if(choice == "book"){
+  for(i in commented_paragraphs){
+    Target[i] <- substr(Target[i], 11, nchar(Target[i]))      
+    selected_chapter <- unlist(strsplit(Target[i], "_"))[2]
+    Target[i] <- paste("CHAP_", selected_chapter, sep = "")
+    #print(i)
+  }
+}
+
+```
+
+### Step 7
+
+Collapsing paragraphs into books/chapters might have generated some duplicated entries, thus sum the values of repeated entries and save all into a dataframe (tabular format)
+
+```{r}
+##Aggregate in dataframe
+user_book_pair_stats_tmp <- data.frame(Weight=as.vector(user_book_pair_stats), source_target = paste(Source, Target, sep = " #PAIR# "), stringsAsFactors = F)
+
+##Sum repeated entries
+user_book_pair_stats_tmp <- with(user_book_pair_stats_tmp, aggregate(list(Weight = Weight), list(source_target = source_target), sum))
+```
+
+### Step 8
+
+Filter weak connections (i.e. exclude pairs that are repeated less than a certain number of times)
+
+```{r}
+activity_limit <- 3
+exclude <- which(user_book_pair_stats_tmp$Weight < activity_limit)
+user_book_pair_stats_tmp <- user_book_pair_stats_tmp[-exclude,]
+```
+
+### Step 9
+
+Prepare dataframe for final results.<br/>
+Values are normalized between 0 and 10 to favour visualization in Gephi
+
+```{r}
+##Prepare final dataframe
+source_target <- strsplit(user_book_pair_stats_tmp$source_target, " #PAIR# ")
+Source <- unlist(lapply(source_target, function(x) x[1]))
+Target <- unlist(lapply(source_target, function(x) x[2]))
+user_book_pair_stats_df <- data.frame(Source, Target, Weight=user_book_pair_stats_tmp$Weight, Type="directed", stringsAsFactors = F)
+
+##Normalize weights between 0 and 10
+normalize_weight <- 10
+user_book_pair_stats_df$Weight <- user_book_pair_stats_df$Weight/max(user_book_pair_stats_df$Weight)*normalize_weight
+```
+
+### Step 10
+
+Anonymize all user names
+
+```{r}
+##Anonymize
+full_node_names <- unique(c(user_book_pair_stats_df$Source, user_book_pair_stats_df$Target))
+anonymizing_table <- data.frame(full_node_names, anonymized_names = character(length(full_node_names)), stringsAsFactors = F)
+book_count <- 0
+user_count <- 0
+for(i in 1:length(anonymizing_table$full_node_names)){
+  if(substr(anonymizing_table$full_node_names[i], 1, 4) == "BOOK"){
+    book_count <- book_count + 1
+    anonymizing_table$anonymized_names[i] <- paste("BOOK_", book_count, sep = "")
+  }
+  if(substr(anonymizing_table$full_node_names[i], 1, 4) == "USER"){
+    user_count <- user_count + 1
+    anonymizing_table$anonymized_names[i] <- paste("USER_", user_count, sep = "")
+  }
+  if(substr(anonymizing_table$full_node_names[i], 1, 4) == "CHAP"){
+    anonymizing_table$anonymized_names[i] <- anonymizing_table$full_node_names[i]
+  }
+}
+
+for(i in 1:length(user_book_pair_stats_df$Source)){
+  user_book_pair_stats_df$Source[i] <- anonymizing_table$anonymized_names[which(anonymizing_table$full_node_names == user_book_pair_stats_df$Source[i])]
+  user_book_pair_stats_df$Target[i] <- anonymizing_table$anonymized_names[which(anonymizing_table$full_node_names == user_book_pair_stats_df$Target[i])]
+}
+
+```
+
+### Step 11
+
+Save all results in separated tables: nodes, edges, and table with real/anonymized names
+
+```{r}
+###Prepare nodes table
+nodes_table <- data.frame(Id = anonymizing_table$anonymized_names, Label = anonymizing_table$anonymized_names, group = substr(anonymizing_table$anonymized_names, 1, 1), stringsAsFactors = F)
+for(i in 1:length(nodes_table$Id)){
+  if(substr(nodes_table$Label[i], 1, 4) == "BOOK"){
+    nodes_table$Label[i] <- substr(anonymizing_table$full_node_names[i], 6, nchar(anonymizing_table$full_node_names[i]))
+  }
+}
+
+##Save all
+write.csv(user_book_pair_stats_df, file = "edges.csv", row.names = F)
+write.csv(nodes_table, file = "nodes.csv", row.names = F)
+write.csv(anonymizing_table, file = "anonymizing_table.csv", row.names = F)
+```
+
+### Step 12 (in Gephi)
+
+Now everything is ready to visualize and analyze your graph in Gephi!
