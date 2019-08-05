@@ -1,7 +1,7 @@
 Reverse Engineering Syuzhet
 ================
 
-This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/> First, let's upload the corpus.
+This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/> First, let's upload the corpus.<br/>
 
 1. Upload Wattpad corpus and call libraries
 -------------------------------------------
@@ -72,13 +72,11 @@ cat("The range of interest is between:\n",
     ##  41.20468 % and 53.31178 %
     ##  of the length of the novel
 
-...so, we want to understand which words determined the section of the graph comprised between 41% and 53%:
+...so, we want to understand which words determined the section of the graph comprised between 41% and 53% of "percentage of book":
 <p align="center">
 <img src="Wattpad_sentiment_analysis_files/figure-markdown_github/unnamed-chunk-9-1.png">
 </p>
-<br/>
-
-### 4. Expand the selection to include the moving window
+<br/> \#\#\# 4. Expand the selection to include the moving window
 
 (by default, moving window is 10% of the total length)
 
