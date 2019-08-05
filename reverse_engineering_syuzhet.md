@@ -76,6 +76,8 @@ cat("The range of interest is between:\n",
 <p align="center">
 <img src="Wattpad_sentiment_analysis_files/figure-markdown_github/unnamed-chunk-9-1.png">
 </p>
+<br/>
+
 ### 4. Expand the selection to include the moving window
 
 (by default, moving window is 10% of the total length)

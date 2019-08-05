@@ -3,12 +3,12 @@ title: "Reverse Engineering Syuzhet"
 output: github_document
 ---
 
+This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/>
+First, let's upload the corpus.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/>
-First, let's upload the corpus.
 
 ## 1. Upload Wattpad corpus and call libraries 
 
@@ -33,7 +33,7 @@ if (!require("syuzhet")) install.packages("syuzhet")
 
 The convention is the following:<br/>
 - numbers in the "passage_ids" variable should be the two extremes of the passage<br/>
-- in the following example, then, the attention is focused on the passage between the first paragraph of the seventh chapter of the first book, and the 66th paragraph of the tenth chapter of the first book <br/>
+- in the following example, then, the attention is focused on the passage between the first paragraph of the seventh chapter of the first book, and the 66th paragraph of the tenth chapter of the first book (i.e. between the seventh and tenth chapter of "Pride and Prejudice") <br/>
 (of course, the values can be changed according to your needs)
 
 ```{r}
@@ -50,11 +50,16 @@ selected_passage_initial_id <- which(wattpad_df$allParagraphsID == passage_ids[1
   selected_passage_final_id <- which(wattpad_df$allParagraphsID == passage_ids[2])
   selected_passage_final_id <- selected_passage_final_id[length(selected_passage_final_id)]
   selected_passage <- selected_passage_initial_id:selected_passage_final_id
-cat("The entries of interest are:\n",
-    head(selected_passage),
-    "\n... ...\n",
-    tail(selected_passage))
+cat("The range of interest is between:\n",
+    selected_passage_initial_id/length(wattpad_df$allParagraphsID)*100, "%",
+    "and",
+    selected_passage_final_id/length(wattpad_df$allParagraphsID)*100, "%\n of the length of the novel")
 ```
+
+...so, we want to understand which words determined the section of the graph comprised between 41% and 53%:
+<p align="center">
+  <img src="Wattpad_sentiment_analysis_files/figure-markdown_github/unnamed-chunk-9-1.png">
+</p><br/>
 
 ### 4. Expand the selection to include the moving window
 
