@@ -50,10 +50,10 @@ selected_passage_initial_id <- which(wattpad_df$allParagraphsID == passage_ids[1
   selected_passage_final_id <- which(wattpad_df$allParagraphsID == passage_ids[2])
   selected_passage_final_id <- selected_passage_final_id[length(selected_passage_final_id)]
   selected_passage <- selected_passage_initial_id:selected_passage_final_id
-cat("The entries of interest are:\n")
-print(head(selected_passage))
-cat("... ...\n")
-print(tail(selected_passage))
+cat("The entries of interest are:\n",
+    head(selected_passage),
+    "\n... ...\n",
+    tail(selected_passage))
 ```
 
 ### 4. Expand the selection to include the moving window
@@ -79,10 +79,10 @@ if(end_selected_ids > length(full_ids))
 
 range_selected_ids <- start_selected_ids:end_selected_ids
 selected_ids <- full_ids[range_selected_ids]
-cat("The paragraphs of interest are:\n")
-print(head(selected_ids))
-cat("... ...\n")
-print(tail(selected_ids))
+cat("The paragraphs of interest are:\n",
+    head(selected_ids),
+    "\n... ...\n",
+    tail(selected_ids))
 ```
 
 ### 5. Prepare word list for each analysed passage
@@ -131,6 +131,9 @@ for(id in selected_ids){
 
 ### 6. Emulate the moving window for determining word values
 
+See the plot for a visual explanation:<br/>
+as the window moves, the weigth of the words that produce the result changes 
+
 ```{r}
 mw_relevance <- rep(0, length(selected_ids))
 starting_point <- 1
@@ -140,7 +143,6 @@ while(ending_point <= length(selected_ids)){
   starting_point <- starting_point+1
   ending_point <- ending_point+1
 }
-cat("Relevance of the words in the different parts of the moving window is the following:\n")
 plot(mw_relevance)
 
 ```
@@ -229,13 +231,15 @@ syuzhet_df_comments <- syuzet_reverse_engineer(comments_wf_df)
 
 ### 10. Explore the results!
 
+...for the paragraphs
+
 ```{r}
-cat("Results for the paragraphs:\n")
 print(head(syuzhet_df_paragraphs))
 print(tail(syuzhet_df_paragraphs))
-cat("Results for the comments:\n")
+```
+...for the comments
+
+```{r}
 print(head(syuzhet_df_comments))
 print(tail(syuzhet_df_comments))
-
-#summary(syuzhet_df_comments)
 ```
