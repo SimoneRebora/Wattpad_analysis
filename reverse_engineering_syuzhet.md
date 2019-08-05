@@ -1,10 +1,9 @@
 Reverse Engineering Syuzhet
 ================
 
-This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/> First, let's upload the corpus.<br/>
+This is an R Markdown document for sentiment analysis of the Wattpad corpus.<br/> First, let's upload the corpus.
 
-1. Upload Wattpad corpus and call libraries
--------------------------------------------
+### 1. Upload Wattpad corpus and call libraries
 
 Each entry in the corpus is composed by 10 parts:<br/> - unique identifier for book, chapter, and paragraph<br/> - title of book, chapter, and paragraph<br/> - name of the user and date of his/her comment<br/> - the comment<br/> - a logical TRUE/FALSE, that indicates if the comment is a reply to a previuos comment<br/> <br/> Note that the corpus is a "sample" generated on the basis of the "Pride and Prejudice" dataset.<br/> The text is the same as it appears in Wattpad and Project Gutenberg; usernames have been anonymized; dates and replies indicators have been scrambled; comments have been generated artifically by re-mixing the words of the actual comments.
 
@@ -62,17 +61,38 @@ selected_passage_initial_id <- which(wattpad_df$allParagraphsID == passage_ids[1
   selected_passage_final_id <- which(wattpad_df$allParagraphsID == passage_ids[2])
   selected_passage_final_id <- selected_passage_final_id[length(selected_passage_final_id)]
   selected_passage <- selected_passage_initial_id:selected_passage_final_id
+
+###Check to which percentage of book these extremes correspond
+percentage_of_book <- numeric()
+total_length <- 0
+full_ids <- unique(wattpad_df$allParagraphsID)
+for(paragraph in full_ids){
+    # get paragraph
+    paragraph_for_SA <- wattpad_df$paragraph[which(wattpad_df$allParagraphsID==paragraph)][1]
+    # get paragraph length
+    paragraph_length <- unlist(strsplit(paragraph_for_SA, "\\W"))
+    paragraph_length <- paragraph_length[paragraph_length != ""]
+    paragraph_length <- length(paragraph_length)
+    # increase total length
+    total_length <- total_length+paragraph_length
+    percentage_of_book <- c(percentage_of_book, total_length)
+}
+# get the percentages
+percentage_of_book <- percentage_of_book/total_length*100
+starting_point <- which(full_ids == passage_ids[1])
+ending_point <- which(full_ids == passage_ids[2])
+
 cat("The range of interest is between:\n",
-    selected_passage_initial_id/length(wattpad_df$allParagraphsID)*100, "%",
+    percentage_of_book[starting_point], "%",
     "and",
-    selected_passage_final_id/length(wattpad_df$allParagraphsID)*100, "%\n of the length of the novel")
+    percentage_of_book[ending_point], "%\n of the length of the novel")
 ```
 
     ## The range of interest is between:
-    ##  41.20468 % and 53.31178 %
+    ##  6.375888 % and 12.76726 %
     ##  of the length of the novel
 
-...so, we want to understand which words determined the section of the graph comprised between 41% and 53% of "percentage of book":
+...so, we want to understand which words determined the section of the graph comprised between 6.4% and 12.8% of "percentage of book":
 <p align="center">
 <img src="Wattpad_sentiment_analysis_files/figure-markdown_github/unnamed-chunk-9-1.png">
 </p>
