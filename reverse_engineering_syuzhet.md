@@ -62,28 +62,16 @@ selected_passage_initial_id <- which(wattpad_df$allParagraphsID == passage_ids[1
   selected_passage_final_id <- which(wattpad_df$allParagraphsID == passage_ids[2])
   selected_passage_final_id <- selected_passage_final_id[length(selected_passage_final_id)]
   selected_passage <- selected_passage_initial_id:selected_passage_final_id
-cat("The entries of interest are:\n")
+cat("The entries of interest are:\n",
+    head(selected_passage),
+    "\n... ...\n",
+    tail(selected_passage))
 ```
 
     ## The entries of interest are:
-
-``` r
-print(head(selected_passage))
-```
-
-    ## [1] 15036 15037 15038 15039 15040 15041
-
-``` r
-cat("... ...\n")
-```
-
+    ##  15036 15037 15038 15039 15040 15041 
     ## ... ...
-
-``` r
-print(tail(selected_passage))
-```
-
-    ## [1] 19449 19450 19451 19452 19453 19454
+    ##  19449 19450 19451 19452 19453 19454
 
 ### 4. Expand the selection to include the moving window
 
@@ -108,28 +96,16 @@ if(end_selected_ids > length(full_ids))
 
 range_selected_ids <- start_selected_ids:end_selected_ids
 selected_ids <- full_ids[range_selected_ids]
-cat("The paragraphs of interest are:\n")
+cat("The paragraphs of interest are:\n",
+    head(selected_ids),
+    "\n... ...\n",
+    tail(selected_ids))
 ```
 
     ## The paragraphs of interest are:
-
-``` r
-print(head(selected_ids))
-```
-
-    ## [1] "1_3_12" "1_3_13" "1_3_14" "1_3_15" "1_3_16" "1_3_17"
-
-``` r
-cat("... ...\n")
-```
-
+    ##  1_3_12 1_3_13 1_3_14 1_3_15 1_3_16 1_3_17 
     ## ... ...
-
-``` r
-print(tail(selected_ids))
-```
-
-    ## [1] "1_15_8"  "1_15_9"  "1_15_10" "1_15_11" "1_15_12" "1_15_13"
+    ##  1_15_8 1_15_9 1_15_10 1_15_11 1_15_12 1_15_13
 
 ### 5. Prepare word list for each analysed passage
 
@@ -176,6 +152,8 @@ for(id in selected_ids){
 
 ### 6. Emulate the moving window for determining word values
 
+See the plot for a visual explanation:<br/> as the window moves, the weigth of the words that produce the result changes
+
 ``` r
 mw_relevance <- rep(0, length(selected_ids))
 starting_point <- 1
@@ -185,12 +163,6 @@ while(ending_point <= length(selected_ids)){
   starting_point <- starting_point+1
   ending_point <- ending_point+1
 }
-cat("Relevance of the words in the different parts of the moving window is the following:\n")
-```
-
-    ## Relevance of the words in the different parts of the moving window is the following:
-
-``` r
 plot(mw_relevance)
 ```
 
@@ -275,11 +247,7 @@ syuzhet_df_comments <- syuzet_reverse_engineer(comments_wf_df)
 
 ### 10. Explore the results!
 
-``` r
-cat("Results for the paragraphs:\n")
-```
-
-    ## Results for the paragraphs:
+...for the paragraphs
 
 ``` r
 print(head(syuzhet_df_paragraphs))
@@ -305,11 +273,7 @@ print(tail(syuzhet_df_paragraphs))
     ## 729          ill       -0.01755552
     ## 617        cried       -0.07393970
 
-``` r
-cat("Results for the comments:\n")
-```
-
-    ## Results for the comments:
+...for the comments
 
 ``` r
 print(head(syuzhet_df_comments))
@@ -334,7 +298,3 @@ print(tail(syuzhet_df_comments))
     ## 1490   damn       -0.02074827
     ## 1293  bitch       -0.02555962
     ## 1268    bad       -0.02721260
-
-``` r
-#summary(syuzhet_df_comments)
-```
