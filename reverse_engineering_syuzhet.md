@@ -44,7 +44,7 @@ if (!require("syuzhet")) install.packages("syuzhet")
 
 ### 2. Isolate the passage of interest
 
-The convention is the following:<br/> - numbers in the "passage\_ids" variable should be the two extremes of the passage<br/> - in the following example, then, the attention is focused on the passage between the first paragraph of the seventh chapter of the first book, and the 66th paragraph of the tenth chapter of the first book <br/> (of course, the values can be changed according to your needs)
+The convention is the following:<br/> - numbers in the "passage\_ids" variable should be the two extremes of the passage<br/> - in the following example, then, the attention is focused on the passage between the first paragraph of the seventh chapter of the first book, and the 66th paragraph of the tenth chapter of the first book (i.e. between the seventh and tenth chapter of "Pride and Prejudice") <br/> (of course, the values can be changed according to your needs)
 
 ``` r
 passage_ids <- c("1_7_1", "1_10_66")
@@ -62,17 +62,20 @@ selected_passage_initial_id <- which(wattpad_df$allParagraphsID == passage_ids[1
   selected_passage_final_id <- which(wattpad_df$allParagraphsID == passage_ids[2])
   selected_passage_final_id <- selected_passage_final_id[length(selected_passage_final_id)]
   selected_passage <- selected_passage_initial_id:selected_passage_final_id
-cat("The entries of interest are:\n",
-    head(selected_passage),
-    "\n... ...\n",
-    tail(selected_passage))
+cat("The range of interest is between:\n",
+    selected_passage_initial_id/length(wattpad_df$allParagraphsID)*100, "%",
+    "and",
+    selected_passage_final_id/length(wattpad_df$allParagraphsID)*100, "%\n of the length of the novel")
 ```
 
-    ## The entries of interest are:
-    ##  15036 15037 15038 15039 15040 15041 
-    ## ... ...
-    ##  19449 19450 19451 19452 19453 19454
+    ## The range of interest is between:
+    ##  41.20468 % and 53.31178 %
+    ##  of the length of the novel
 
+...so, we want to understand which words determined the section of the graph comprised between 41% and 53%:
+<p align="center">
+<img src="Wattpad_sentiment_analysis_files/figure-markdown_github/unnamed-chunk-9-1.png">
+</p>
 ### 4. Expand the selection to include the moving window
 
 (by default, moving window is 10% of the total length)
