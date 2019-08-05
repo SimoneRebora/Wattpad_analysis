@@ -1,6 +1,6 @@
 ---
 title: "Wattpad Sentiment Analysis Tutorial"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
