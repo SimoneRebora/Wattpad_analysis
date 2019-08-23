@@ -6,7 +6,7 @@ Scripts and (sample) corpus for the analysis of the Wattpad platform (www.wattpa
 
 ## Content
 The <b>Sample_wattpad_corpus.csv</b> file contains a sample corpus (with anonymized usernames and artificially-generated comments)<br/>
-In the <b>Wattpad_network_preparation.Rmd</b> file is the Rmarkdown to prepare network analysis of the sample corpus (visualizations should be realized with Gephi: https://gephi.org/)<br/>
+In the <b>Wattpad_network_preparation.Rmd</b> file is the Rmarkdown to prepare the network analysis of the sample corpus (visualizations should be realized with Gephi: https://gephi.org/)<br/>
 In the <b>Wattpad_sentiment_analysis.Rmd</b> file is the Rmarkdown for runnning sentiment analysis on the sample corpus, via the syuzhet package: https://github.com/mjockers/syuzhet<br/>
 In the <b>reverse_engineering_syuzhet.Rmd</b> file is the Rmarkdown for evaluating the relevance of single words in generating a section of the sentiment analysis graph<br/>
 All .Rmd files are accompanied by .md files (easier to read in Github).<br/> 
