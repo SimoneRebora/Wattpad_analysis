@@ -1,6 +1,7 @@
 # Wattpad_analysis
 **Author:** Simone Rebora<br/> 
 **License:** [GPL-3](https://opensource.org/licenses/GPL-3.0)<br/>
+<br/>
 Scripts and (sample) corpus for the analysis of the Wattpad platform (www.wattpad.com)<br/>
 
 ## Content
