@@ -1,6 +1,6 @@
 ---
 title: "Wattpad Network Preparation"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -226,9 +226,9 @@ for(i in 1:length(nodes_table$Id)){
 }
 
 ##Save all
-write.csv(user_book_pair_stats_df, file = "edges.csv", row.names = F)
-write.csv(nodes_table, file = "nodes.csv", row.names = F)
-write.csv(anonymizing_table, file = "anonymizing_table.csv", row.names = F)
+write.csv(user_book_pair_stats_df, file = "network_files/edges.csv", row.names = F)
+write.csv(nodes_table, file = "network_files/nodes.csv", row.names = F)
+write.csv(anonymizing_table, file = "network_files/anonymizing_table.csv", row.names = F)
 ```
 
 ### Step 12 (in Gephi)
