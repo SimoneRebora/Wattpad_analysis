@@ -1,7 +1,7 @@
 # Wattpad_analysis
+[![DOI](https://zenodo.org/badge/191598695.svg)](https://zenodo.org/badge/latestdoi/191598695)<br/>
 **Author:** Simone Rebora<br/> 
 **License:** [GPL-3](https://opensource.org/licenses/GPL-3.0)<br/>
-[![DOI](https://zenodo.org/badge/191598695.svg)](https://zenodo.org/badge/latestdoi/191598695)
 <br/>
 Scripts and (sample) corpus for the analysis of the Wattpad platform (www.wattpad.com)<br/>
 
