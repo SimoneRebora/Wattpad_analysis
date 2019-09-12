@@ -1,0 +1,260 @@
+---
+title: "Wattpad_crawling"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Wattpad crawling tutorial
+
+This is a basic tutorial that introduces you to how we collected our data from Wattpad through the crawling (or scraping) technique.</br>
+Remember that this technique is very delicate and should be applied by complying to a series of rules (or good practices). So read carefully all our suggestions.</br>
+All the following scripts will be based on a docker virtual browser. So, before running it, you will have to install it on your computer (https://docs.docker.com/install/)</br>
+Once you have installed it, please start the following container:</br>
+$ sudo docker run -d -p 4445:4444 selenium/standalone-firefox:2.53.0</br>
+(note that this is not the latest version of Firefox, however, this is the one that was used and tested for the present tutorial)
+
+## Step 0. Upload packages
+
+```{r packages}
+library(magrittr)
+library(rvest)
+library(RSelenium)
+library(stringi)
+```
+
+## Step 1. Scraping preparation
+
+First, initiate the virtual browser and navigate to the selected page (in our case, the first chapter of "Pride and Prejudice" on Wattapd)</br>
+To verify the connection, print the title of the page
+
+```{r preparation}
+remDr <- remoteDriver(port = 4445L) # instantiate remote driver to connect to Selenium Server
+remDr$open() # open web browser
+url = "https://www.wattpad.com/20044727-pride-and-prejudice-1813-chapter-i"
+remDr$navigate(url)
+page_title <- unlist(remDr$getTitle())
+cat("The title of the page is:\n", page_title)
+```
+
+## Step 2. Info extraction (Chapter title)
+
+Now we can start exploring the page and extracting the relevant information.<br/>
+For example, the title of the chapter we are currently reading.<br/>
+(Note that all these operations are performed directly on the html code of the pages. To know where to find the tags--for example, "h2" for the chapter title--please open the page in your browser and visualize its structure--F12 in Firefox)
+
+```{r}
+##get title of chapter
+chapter_title <- remDr$findElements("css selector", "h2")
+chapter_html <- lapply(chapter_title, function(x){x$getElementAttribute("outerHTML")[[1]]})
+chapter_title <- lapply(chapter_html, function(x){read_html(x) %>% html_text()} )
+chapter_title <- unlist(chapter_title)
+chapter_title <- gsub("\n", "", chapter_title)
+chapter_title <- gsub("[ \t]+", " ", chapter_title)
+cat("Chapter title:\n", chapter_title)
+```
+
+## Step 3. Info extraction (stats)
+
+Let's extract some statistics: reads, votes, and comments on the current chapter.
+
+```{r}
+####function to extract numbers
+numextract <- function(string){ 
+  str_extract(string, "\\-*\\d+\\.*\\d*")
+} 
+###function to convert numbers
+convert_nums <- function(x){
+  number_out = numeric()
+  for(i in 1 : length(x)){
+    x[i] = gsub(" ", "", x[i])
+    if(stri_sub(x[i], -1) == "K"){
+      x[i] <- gsub('K', '', x[i])
+      number_out[i] <- as.numeric(x[i])*1000
+      next
+    }
+    if(stri_sub(x[i], -1) == "M"){
+      x[i] <- gsub('M', '', x[i])
+      number_out[i] <- as.numeric(x[i])*1000000
+      next
+    }
+    if(stri_sub(x[i], -1) == "+"){
+	  number_out[i] <- 0
+	  next
+	}
+    number_out[i] <- as.numeric(x[i])
+  }
+  return(number_out)
+}
+
+chapter_info <- remDr$findElements("css selector", ".story-stats")
+chapter_html <- lapply(chapter_info, function(x){x$getElementAttribute("outerHTML")[[1]]})
+doc <- read_html(chapter_html[[1]])
+  
+chapter_reads <- doc %>% html_nodes(".reads") %>% html_text()
+dummy <-gsub("\n", " ", chapter_reads)
+chapter_reads <- gsub("[ \t]+", " ", dummy) %>% convert_nums()
+
+chapter_votes <- doc %>% html_nodes(".votes") %>% html_text()
+dummy <-gsub("\n", " ", chapter_votes)
+chapter_votes <- gsub("[ \t]+", " ", dummy) %>% convert_nums()
+
+chapter_comments <- doc %>% html_nodes(".comments") %>% html_text()
+dummy <-gsub("\n", " ", chapter_comments)
+chapter_comments <- gsub("[ \t]+", " ", dummy) %>% convert_nums()
+
+cat("Chapter reads:", chapter_reads,
+    "\nChapter votes:", chapter_votes,
+    "\nChapter comments:", chapter_comments)
+```
+
+## Step 4. Paragraphs extraction (text)
+
+Now we can move to the text and start its extraction.</br>
+First, the commented paragraphs.</br>
+(Note: as sometimes only a part of the chapter is shown, we have to move to the page bottom, so that also the following part can appear)
+
+```{r}
+## Move to bottom
+cat("Moving to page bottom (please wait a bit...)\n")
+webElem <- remDr$findElement("css", "body")
+for(down_page in 1:10){
+	webElem$sendKeysToElement(list(key = "end"))
+  Sys.sleep(3)
+  print(down_page)
+}
+
+## Get all paragraphs and comment numbers
+paragraphs_tmp <- remDr$findElements("xpath", "//div[contains(@class, 'page highlighter')]/div/pre")
+paragraphs_html <- lapply(paragraphs_tmp, function(x){x$getElementAttribute("outerHTML")[[1]]})
+
+## Process paragraphs and comment numbers
+chapter_paragraphs <- character()
+chapter_paragraphs_comments <- character()
+for(i in 1:length(paragraphs_html)){
+  doc <- read_html(paragraphs_html[[i]])
+  chapter_paragraphs_tmp <- doc %>% html_nodes("p") %>% html_text()
+  chapter_paragraphs_comments_tmp <- doc %>% html_nodes(xpath = '//*[@class="num-comment"]') %>% html_text()
+  for(i in 1:length(chapter_paragraphs_tmp)){
+    chapter_paragraphs_tmp[i] <- unlist(strsplit(chapter_paragraphs_tmp[i], "\n"))[1]
+  }
+  chapter_paragraphs <- c(chapter_paragraphs, chapter_paragraphs_tmp)
+  chapter_paragraphs_comments <- c(chapter_paragraphs_comments, chapter_paragraphs_comments_tmp)
+}
+
+## Show results
+chapter_paragraphs_df <- data.frame(paragraph = chapter_paragraphs, num_comments = chapter_paragraphs_comments, stringsAsFactors = F)
+head(chapter_paragraphs_df)
+```
+
+## Step 5. Comments extraction (just the first paragraph)
+
+Now the most complex (and important) part of the scraping starts!</br>
+Let's extract the comments to the first paragraph ("It is a truth universally acknowledged...")</br>
+As you might have noticed, they are 3,300, so for a demonstration we'll extract only a part of them (one hundred)
+
+```{r}
+##find all commented paragraphs
+CommentsButton <- remDr$findElements("class name", "num-comment")
+
+##get total number of comments
+total_number <- chapter_paragraphs_comments
+for(i in 1: length(total_number)){
+  total_number[i] = unlist(strsplit(total_number[i], "\n    "))[2]
+  total_number[i] = unlist(strsplit(total_number[i], "\n  "))[1]
+}
+total_number = convert_nums(total_number)
+cat("Total number of comments per paragraph:\n")
+print(total_number)
+comments_per_paragraph = paste(total_number, collapse = " ")
+
+##find comments at page bottom
+CommentsBottom <- remDr$findElements("class name", "comment")
+comments_at_bottom <- length(CommentsBottom)
+cat("Comments at page bottom:", comments_at_bottom)
+
+## Let's work on the first paragraph
+WP_comment <- 1
+
+## define function to click buttons
+click_button <- function(NextPageButton){
+  tryCatch(
+    NextPageButton$clickElement()
+    ,
+    ## But if an error occurs, do the following: 
+    error=function(error_message) {
+      message("Yet another error message in catch_button.")
+      message("Here is the actual R error message:")
+      message(error_message)
+      message("\nHOWEVER don't worry, we can still go on!!!\n\n")
+      return("iserror")
+    }
+  )
+}
+
+## first try, will probably get an error
+button_clicked <- click_button(CommentsButton[[WP_comment]])
+## so, move up the page a bit...
+if(class(button_clicked) == "character"){
+	webElem <- remDr$findElement("css", "body")
+	webElem$sendKeysToElement(list(key = "up_arrow"))
+	webElem$sendKeysToElement(list(key = "up_arrow"))
+	## and try again!!
+	button_clicked <- click_button(CommentsButton[[WP_comment]])
+	if(class(button_clicked) == "character"){
+		webElem <- remDr$findElement("css", "body")
+		webElem$sendKeysToElement(list(key = "up_arrow"))
+		webElem$sendKeysToElement(list(key = "up_arrow"))
+		## and try again!!
+		button_clicked <- click_button(CommentsButton[[WP_comment]])
+		if(class(button_clicked) == "character"){
+			wp_login(remDr)
+			url <- chapter_links[wp_chapter]
+			restart_scraping(url)
+			CommentsButton <- remDr$findElements("class name", "num-comment")
+			next
+		}
+	}
+}
+##Check screenshot to verify that the pop-up with comments was opened
+#remDr$screenshot(display = TRUE)
+if(class(button_clicked) != "character"){
+  cat("Paragraph connected\nStarting retrieval\n\n\n")
+  Sys.sleep(3)
+  ###Show more comments
+	MoreCommButton <- remDr$findElements("class name", "show-more")
+	for(i in 1:9){
+	  cat("Retrieving more comments", i*10, "\n")
+	  button_clicked <- click_button(MoreCommButton[[2]])
+	  if(class(button_clicked) == "character"){break}
+	  ##wait three seconds (to not overharge the server...)
+	  Sys.sleep(3)
+	}
+	#remDr$screenshot(display = TRUE)
+	###Extract and clean comments
+	comments <- remDr$findElements("class", "comment")
+	comments_html <- lapply(comments, function(x){x$getElementAttribute("outerHTML")[[1]]})
+	clean_comments <- character()
+	for(i in comments_at_bottom:length(comments_html)){
+	  doc <- read_html(comments_html[[i]])
+	  comment_html <- doc %>% html_nodes(".header")
+	  clean_comments[i-comments_at_bottom] <- doc %>% html_nodes("pre") %>% html_text()
+	}
+	cat("Storing of comments done\n\n")
+}
+cat("Total retrieved comments:", length(clean_comments))
+comments_words <- lapply(clean_comments, function(x) unlist(strsplit(x, " ")))
+cat("Comments lengths (in words):")
+print(unlist(lapply(comments_words, length)))
+
+```
+
+## Further steps and important notes
+
+Now everything is ready to start crawling the Wattapad website!<br/>
+However, remember that:</br>
+- scraping can become ineffective (and even dangerous) if you don't add pauses between each operation! (always use the Sys.sleep function to make the server breath a bit between your requests)</br>
+- please inform Wattpad directly, before starting any scraping activity on their website (see the terms of use: https://policies.wattpad.com/terms)</br>
+- remember that the data you will be dealing with is very sensitive. So don't share it openly, protect the privacy of the users, and always comply to the current legislation (for more information on copyright exceptions for research purposes in Germany--the country from where we realized the scraping--see here: https://www.clarin.eu/content/clic-copyright-exceptions-germany)
